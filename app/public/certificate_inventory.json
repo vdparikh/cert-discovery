@@ -1,0 +1,9 @@
+[
+    {
+        "Path": "/Users/vishal/go/src/github.com/vdparikh/moderator/web/node_modules/public-encrypt/test/test_cert.pem",
+        "Subject": "subject= /C=UK/ST=Acknack Ltd/L=Rhys Jones/O=node.js/OU=Test TLS Certificate/CN=localhost",
+        "Issuer": "issuer= /C=UK/ST=Acknack Ltd/L=Rhys Jones/O=node.js/OU=Test TLS Certificate/CN=localhost",
+        "Thumbprint": "75:3C:91:FD:7E:AB:30:EB:3F:F5:3B:8E:F7:ED:0A:54:BB:4C:15:95:69:8F:3D:D2:FC:7D:00:7E:C9:4C:70:3A",
+        "ExpirationDate": "Nov  6 09:52:22 2029 GMT"
+    }
+]

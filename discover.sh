@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Get a list of running container IDs
+container_ids=$(docker ps --format "{{.ID}}")
+
 # Initialize an array to store certificate information
 declare -a certificates
 
@@ -10,11 +13,30 @@ handle_error() {
     exit 1
 }
 
+find_pem_files_in_container() {
+    # Loop through each container
+    for container_id in $container_ids; do
+        # Execute the command inside the container to search for PEM files and process them
+        pem_files=$(docker exec "$container_id" sh -c 'find / -type f \( -iname "*.pem" -o -iname "*.crt" \) -exec openssl x509 -noout -subject -in {} \;' 2>/dev/null)
+
+        # Process the PEM files and add them to the certificates array
+        while IFS= read -r pem_file; do
+            # process_pem_file "$pem_file"
+            cert_info="{
+                \"Subject\": \"$pem_file\"
+            }"
+            certificates+=("$cert_info")
+        done <<< "$pem_files"
+    done
+}
+
+
 # Search for PEM files on the system
 find_pem_files() {
-    local search_dirs=( "/another/possible/directory" "/etc/ssl")
+    local search_dirs=("/Users/vishal/go/src" "/etc/ssl")
 
     for dir in "${search_dirs[@]}"; do
+        echo "$dir"
         if [ -d "$dir" ]; then
             while IFS= read -r pem_file; do
                 process_pem_file "$pem_file"
@@ -39,15 +61,22 @@ process_pem_file() {
         issuer=$(openssl x509 -noout -issuer -in "$pem_file")
         thumbprint=$(openssl x509 -noout -fingerprint -in "$pem_file" | cut -d'=' -f2)
         expiration_date=$(openssl x509 -noout -enddate -in "$pem_file" | cut -d'=' -f2)
-        local cert_info="{
-            \"Path\": \"$pem_file\",
-            \"Subject\": \"$subject\",
-            \"Issuer\": \"$issuer\",
-            \"Thumbprint\": \"$thumbprint\",
-            \"ExpirationDate\": \"$expiration_date\"
-        }"
 
-        certificates+=("$cert_info")  # Append certificate info to the global array
+        if [ -z "$subject" ]; then
+            echo "subject is empty."
+        else
+             local cert_info="{
+                \"Path\": \"$pem_file\",
+                \"Subject\": \"$subject\",
+                \"Issuer\": \"$issuer\",
+                \"Thumbprint\": \"$thumbprint\",
+                \"ExpirationDate\": \"$expiration_date\"
+            }"
+
+            certificates+=("$cert_info")  # Append certificate info to the global array
+        fi
+
+       
     else
         handle_error "PEM file not found: $pem_file"
     fi
@@ -87,21 +116,26 @@ process_keystore() {
     fi
 }
 
+
 # Search for PEM files
 find_pem_files
+find_pem_files_in_container
 
 # Output the certificate information in JSON format if certificates were found
+cert_inventory_file="./app/public/certificate_inventory.json"
+
+# Output the certificate information in JSON format
 if [ ${#certificates[@]} -eq 0 ]; then
     handle_error "No certificates found"
 else
-    echo "[" > certificate_inventory.json
+    echo "[" > "$cert_inventory_file"
     for ((i=0; i<${#certificates[@]}; i++)); do
-        echo "${certificates[$i]}" >> certificate_inventory.json
+        echo "${certificates[$i]}" >> "$cert_inventory_file"
         if [[ $i -lt $((${#certificates[@]}-1)) ]]; then
-            echo "," >> certificate_inventory.json
+            echo "," >> "$cert_inventory_file"
         fi
     done
-    echo "]" >> certificate_inventory.json
+    echo "]" >> "$cert_inventory_file"
 
-    echo "Certificate inventory has been saved to certificate_inventory.json"
+    echo "Certificate inventory has been saved to $cert_inventory_file"
 fi
